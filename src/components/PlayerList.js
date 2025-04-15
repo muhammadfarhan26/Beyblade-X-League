@@ -48,6 +48,8 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { keyframes } from '@mui/system';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import Autocomplete from '@mui/material/Autocomplete';
 
 // Custom styled components
 const StyledTabs = styled(Tabs)(({ theme }) => ({
@@ -328,6 +330,104 @@ const RulesTitle = styled(Typography)(({ theme }) => ({
   fontSize: '2rem',
 }));
 
+const MatchDialog = ({ open, onClose, match, players, onSave }) => {
+  const [player1Score, setPlayer1Score] = useState(match?.player1Score || 0);
+  const [player2Score, setPlayer2Score] = useState(match?.player2Score || 0);
+  const [result, setResult] = useState(match?.result || '');
+
+  // Auto-calculate result based on scores
+  useEffect(() => {
+    if (player1Score > player2Score) {
+      setResult('win');
+    } else if (player1Score < player2Score) {
+      setResult('loss');
+    } else {
+      setResult('draw');
+    }
+  }, [player1Score, player2Score]);
+
+  const handleSave = () => {
+    onSave({
+      ...match,
+      player1Score,
+      player2Score,
+      result,
+      completed: true
+    });
+    onClose();
+  };
+
+  const player1 = players.find(p => p.id === match?.player1);
+  const player2 = players.find(p => p.id === match?.player2);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle color="primary">
+        Record Match Result
+      </DialogTitle>
+      <Divider />
+      <DialogContent>
+        <Box sx={{ mt: 2, mb: 2 }}>
+          <Typography variant="h6" align="center">
+            {player1?.name} vs {player2?.name}
+          </Typography>
+        </Box>
+        <Box sx={{ mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+          <Typography variant="subtitle1" gutterBottom>
+            Match Result (Auto-determined)
+          </Typography>
+          <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
+            {result === 'win' ? `${player1?.name} Wins` :
+             result === 'loss' ? `${player2?.name} Wins` :
+             'Draw'}
+          </Typography>
+        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={6}>
+            <TextField
+              label={`${player1?.name} Score`}
+              type="number"
+              fullWidth
+              value={player1Score}
+              onChange={(e) => {
+                const value = Math.min(9, Math.max(0, parseInt(e.target.value) || 0));
+                setPlayer1Score(value);
+              }}
+              inputProps={{ min: 0, max: 9 }}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <TextField
+              label={`${player2?.name} Score`}
+              type="number"
+              fullWidth
+              value={player2Score}
+              onChange={(e) => {
+                const value = Math.min(9, Math.max(0, parseInt(e.target.value) || 0));
+                setPlayer2Score(value);
+              }}
+              inputProps={{ min: 0, max: 9 }}
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <Divider />
+      <DialogActions>
+        <Button onClick={onClose}>
+          Cancel
+        </Button>
+        <Button 
+          variant="contained" 
+          color="primary"
+          onClick={handleSave}
+        >
+          Save
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const PlayerList = () => {
   const theme = useTheme();
   const [players, setPlayers] = useState([]);
@@ -354,6 +454,10 @@ const PlayerList = () => {
   const [editPlayerName, setEditPlayerName] = useState('');
   const [editPlayerImage, setEditPlayerImage] = useState(null);
   const [editImagePreview, setEditImagePreview] = useState(null);
+  const [searchHome, setSearchHome] = useState('');
+  const [searchAway, setSearchAway] = useState('');
+  const [searchAny, setSearchAny] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     const savedPlayers = JSON.parse(localStorage.getItem('beybladePlayers')) || [];
@@ -362,6 +466,59 @@ const PlayerList = () => {
     setSchedule(savedSchedule);
   }, []);
 
+  const calculateRankings = () => {
+    // Reset all player stats
+    const updatedPlayers = players.map(player => ({
+      ...player,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      points: 0,
+      gf: 0,
+      ga: 0,
+      gamesPlayed: 0,
+    }));
+
+    // Calculate stats from completed matches
+    schedule.forEach(match => {
+      if (match.completed) {
+        const player1 = updatedPlayers.find(p => p.id === match.player1);
+        const player2 = updatedPlayers.find(p => p.id === match.player2);
+
+        if (player1 && player2) {
+          // Update games played
+          player1.gamesPlayed += 1;
+          player2.gamesPlayed += 1;
+
+          // Update goals for/against
+          player1.gf += match.player1Score;
+          player1.ga += match.player2Score;
+          player2.gf += match.player2Score;
+          player2.ga += match.player1Score;
+
+          // Update wins/losses/draws and points
+          if (match.result === 'win') {
+            player1.wins += 1;
+            player2.losses += 1;
+            player1.points += 3;
+          } else if (match.result === 'draw') {
+            player1.draws += 1;
+            player2.draws += 1;
+            player1.points += 1;
+            player2.points += 1;
+          } else {
+            player1.losses += 1;
+            player2.wins += 1;
+            player2.points += 3;
+          }
+        }
+      }
+    });
+
+    setPlayers(updatedPlayers);
+    localStorage.setItem('beybladePlayers', JSON.stringify(updatedPlayers));
+  };
+
   const handleOpenMatchDialog = (match) => {
     setSelectedMatch(match);
     if (match.completed) {
@@ -369,7 +526,14 @@ const PlayerList = () => {
       setPlayer1Score(match.player1Score);
       setPlayer2Score(match.player2Score);
     } else {
-      setMatchResult('win');
+      // Auto-detect winner based on scores
+      if (player1Score > player2Score) {
+        setMatchResult('win');
+      } else if (player1Score < player2Score) {
+        setMatchResult('loss');
+      } else {
+        setMatchResult('draw');
+      }
       setPlayer1Score(3);
       setPlayer2Score(0);
     }
@@ -868,6 +1032,15 @@ const PlayerList = () => {
                   <Button
                     variant="contained"
                     color="primary"
+                    startIcon={<RefreshIcon />}
+                    onClick={calculateRankings}
+                    sx={{ minWidth: '120px' }}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
                     startIcon={<DownloadIcon />}
                     onClick={handleExportData}
                     sx={{ minWidth: '120px' }}
@@ -942,25 +1115,16 @@ const PlayerList = () => {
                   <TableBody>
                     {[...players]
                       .sort((a, b) => {
-                        // Calculate win/loss ratio (avoid division by zero)
-                        const aRatio = a.losses === 0 ? a.wins : a.wins / a.losses;
-                        const bRatio = b.losses === 0 ? b.wins : b.wins / b.losses;
-                        
-                        // First sort by win/loss ratio
-                        if (aRatio !== bRatio) {
-                          return bRatio - aRatio;
+                        // First sort by points
+                        if (b.points !== a.points) {
+                          return b.points - a.points;
                         }
                         
-                        // If win/loss ratio is equal, sort by score (GF + GA)
+                        // If points are equal, sort by total score (GF + GA)
                         const aScore = (a.gf || 0) + (a.ga || 0);
                         const bScore = (b.gf || 0) + (b.ga || 0);
                         
-                        if (aScore !== bScore) {
-                          return bScore - aScore;
-                        }
-                        
-                        // If score is equal, sort by points
-                        return b.points - a.points;
+                        return bScore - aScore;
                       })
                       .map((player, index) => {
                         const totalScore = (player.gf || 0) + (player.ga || 0);
@@ -996,7 +1160,7 @@ const PlayerList = () => {
                             }}>
                               {totalScore > 0 ? '+' : ''}{totalScore}
                             </TableCell>
-                            <TableCell align="right">{player.points}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>{player.points}</TableCell>
                             <TableCell align="right">
                               <Stack direction="row" spacing={1} justifyContent="flex-end">
                                 <IconButton
@@ -1075,15 +1239,99 @@ const PlayerList = () => {
                 <Typography variant="h5" component="h2" color="primary">
                   Match Schedule
                 </Typography>
-                <StyledButton
-                  variant="contained"
-                  color="primary"
-                  startIcon={<EventIcon />}
-                  onClick={() => handleOpenConfirmation('generate')}
-                  fullWidth={{ xs: true, sm: false }}
-                >
-                  Generate Schedule
-                </StyledButton>
+                <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  <Autocomplete
+                    value={searchAny}
+                    onChange={(event, newValue) => {
+                      setSearchAny(newValue);
+                      if (newValue) {
+                        setSearchHome('');
+                        setSearchAway('');
+                      }
+                    }}
+                    inputValue={searchAny}
+                    onInputChange={(event, newInputValue) => {
+                      setSearchAny(newInputValue);
+                    }}
+                    options={players.map(player => player.name)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Search Any Player"
+                        variant="outlined"
+                        size="small"
+                        sx={{ minWidth: 200 }}
+                      />
+                    )}
+                  />
+                  <Autocomplete
+                    value={searchHome}
+                    onChange={(event, newValue) => {
+                      setSearchHome(newValue);
+                      if (newValue) {
+                        setSearchAny('');
+                      }
+                    }}
+                    inputValue={searchHome}
+                    onInputChange={(event, newInputValue) => {
+                      setSearchHome(newInputValue);
+                    }}
+                    options={players.map(player => player.name)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Search Home Player"
+                        variant="outlined"
+                        size="small"
+                        sx={{ minWidth: 200 }}
+                      />
+                    )}
+                  />
+                  <Autocomplete
+                    value={searchAway}
+                    onChange={(event, newValue) => {
+                      setSearchAway(newValue);
+                      if (newValue) {
+                        setSearchAny('');
+                      }
+                    }}
+                    inputValue={searchAway}
+                    onInputChange={(event, newInputValue) => {
+                      setSearchAway(newInputValue);
+                    }}
+                    options={players.map(player => player.name)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Search Away Player"
+                        variant="outlined"
+                        size="small"
+                        sx={{ minWidth: 200 }}
+                      />
+                    )}
+                  />
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      label="Status"
+                    >
+                      <MenuItem value="all">All Matches</MenuItem>
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="completed">Completed</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <StyledButton
+                    variant="contained"
+                    color="primary"
+                    startIcon={<EventIcon />}
+                    onClick={() => handleOpenConfirmation('generate')}
+                    fullWidth={{ xs: true, sm: false }}
+                  >
+                    Generate Schedule
+                  </StyledButton>
+                </Stack>
               </Stack>
               <TableContainer 
                 component={Paper} 
@@ -1110,183 +1358,146 @@ const PlayerList = () => {
                     </TableRow>
                   </StyledTableHead>
                   <TableBody>
-                    {schedule.map((match) => {
-                      const winnerId = getWinner(match);
-                      return (
-                        <StyledTableRow key={match.id}>
-                          <TableCell>M{match.id}</TableCell>
-                          <SchedulePlayerCell>
-                            <Stack direction="row" alignItems="center" spacing={0.5}>
-                              {players.find(p => p.id === match.player1)?.image ? (
-                                <PlayerImage 
-                                  src={players.find(p => p.id === match.player1)?.image} 
-                                  alt={getPlayerName(match.player1)} 
-                                />
-                              ) : (
-                                <EmojiEventsIcon sx={{ mr: 1 }} />
-                              )}
-                              <Typography 
-                                variant="body2"
-                                color={winnerId === match.player1 ? 'primary' : 'text.primary'}
-                                fontWeight={winnerId === match.player1 ? 'bold' : 'normal'}
-                              >
-                                {getPlayerName(match.player1)}
-                              </Typography>
-                              {match.isHome && (
-                                <Chip
-                                  icon={<HomeIcon />}
-                                  label="H"
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                  sx={{ minWidth: '24px', height: '24px' }}
-                                />
-                              )}
-                            </Stack>
-                          </SchedulePlayerCell>
-                          <SchedulePlayerCell>
-                            <Stack direction="row" alignItems="center" spacing={0.5}>
-                              {players.find(p => p.id === match.player2)?.image ? (
-                                <PlayerImage 
-                                  src={players.find(p => p.id === match.player2)?.image} 
-                                  alt={getPlayerName(match.player2)} 
-                                />
-                              ) : (
-                                <EmojiEventsIcon sx={{ mr: 1 }} />
-                              )}
-                              <Typography 
-                                variant="body2"
-                                color={winnerId === match.player2 ? 'primary' : 'text.primary'}
-                                fontWeight={winnerId === match.player2 ? 'bold' : 'normal'}
-                              >
-                                {getPlayerName(match.player2)}
-                              </Typography>
-                              {!match.isHome && (
-                                <Chip
-                                  icon={<AwayIcon />}
-                                  label="A"
-                                  size="small"
-                                  color="secondary"
-                                  variant="outlined"
-                                  sx={{ minWidth: '24px', height: '24px' }}
-                                />
-                              )}
-                            </Stack>
-                          </SchedulePlayerCell>
-                          <TableCell>
-                            <Chip
-                              label={match.completed ? 'Done' : 'Pend'}
-                              color={match.completed ? 'success' : 'warning'}
-                              size="small"
-                              sx={{ minWidth: '24px', height: '24px' }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {match.completed 
-                              ? `${match.player1Score}-${match.player2Score}`
-                              : '-'
-                            }
-                          </TableCell>
-                          <TableCell>
-                            {!match.completed ? (
-                              <StyledButton
-                                variant="outlined"
+                    {schedule
+                      .filter(match => {
+                        // Filter by status first
+                        if (statusFilter !== 'all') {
+                          if (statusFilter === 'pending' && match.completed) return false;
+                          if (statusFilter === 'completed' && !match.completed) return false;
+                        }
+
+                        // Then filter by player search
+                        if (!searchHome && !searchAway && !searchAny) return true;
+                        
+                        const homePlayer = players.find(p => p.id === match.player1);
+                        const awayPlayer = players.find(p => p.id === match.player2);
+                        
+                        if (searchAny) {
+                          return (
+                            homePlayer?.name.toLowerCase().includes(searchAny.toLowerCase()) ||
+                            awayPlayer?.name.toLowerCase().includes(searchAny.toLowerCase())
+                          );
+                        }
+                        
+                        return (
+                          (!searchHome || homePlayer?.name.toLowerCase().includes(searchHome.toLowerCase())) &&
+                          (!searchAway || awayPlayer?.name.toLowerCase().includes(searchAway.toLowerCase()))
+                        );
+                      })
+                      .map((match) => {
+                        const winnerId = getWinner(match);
+                        return (
+                          <StyledTableRow key={match.id}>
+                            <TableCell>M{match.id}</TableCell>
+                            <SchedulePlayerCell>
+                              <Stack direction="row" alignItems="center" spacing={0.5}>
+                                {players.find(p => p.id === match.player1)?.image ? (
+                                  <PlayerImage 
+                                    src={players.find(p => p.id === match.player1)?.image} 
+                                    alt={getPlayerName(match.player1)} 
+                                  />
+                                ) : (
+                                  <EmojiEventsIcon sx={{ mr: 1 }} />
+                                )}
+                                <Typography 
+                                  variant="body2"
+                                  color={winnerId === match.player1 ? 'primary' : 'text.primary'}
+                                  fontWeight={winnerId === match.player1 ? 'bold' : 'normal'}
+                                >
+                                  {getPlayerName(match.player1)}
+                                </Typography>
+                                {match.isHome && (
+                                  <Chip
+                                    icon={<HomeIcon />}
+                                    label="H"
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                    sx={{ minWidth: '24px', height: '24px' }}
+                                  />
+                                )}
+                              </Stack>
+                            </SchedulePlayerCell>
+                            <SchedulePlayerCell>
+                              <Stack direction="row" alignItems="center" spacing={0.5}>
+                                {players.find(p => p.id === match.player2)?.image ? (
+                                  <PlayerImage 
+                                    src={players.find(p => p.id === match.player2)?.image} 
+                                    alt={getPlayerName(match.player2)} 
+                                  />
+                                ) : (
+                                  <EmojiEventsIcon sx={{ mr: 1 }} />
+                                )}
+                                <Typography 
+                                  variant="body2"
+                                  color={winnerId === match.player2 ? 'primary' : 'text.primary'}
+                                  fontWeight={winnerId === match.player2 ? 'bold' : 'normal'}
+                                >
+                                  {getPlayerName(match.player2)}
+                                </Typography>
+                                {!match.isHome && (
+                                  <Chip
+                                    icon={<AwayIcon />}
+                                    label="A"
+                                    size="small"
+                                    color="secondary"
+                                    variant="outlined"
+                                    sx={{ minWidth: '24px', height: '24px' }}
+                                  />
+                                )}
+                              </Stack>
+                            </SchedulePlayerCell>
+                            <TableCell>
+                              <Chip
+                                label={match.completed ? 'Done' : 'Pend'}
+                                color={match.completed ? 'success' : 'warning'}
                                 size="small"
-                                onClick={() => handleOpenMatchDialog(match)}
-                              >
-                                Record
-                              </StyledButton>
-                            ) : (
-                              <Stack direction="row" spacing={1}>
+                                sx={{ minWidth: '24px', height: '24px' }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {match.completed 
+                                ? `${match.player1Score}-${match.player2Score}`
+                                : '-'
+                              }
+                            </TableCell>
+                            <TableCell>
+                              {!match.completed ? (
                                 <StyledButton
                                   variant="outlined"
                                   size="small"
                                   onClick={() => handleOpenMatchDialog(match)}
-                                  startIcon={<EditIcon />}
                                 >
-                                  Edit
+                                  Record
                                 </StyledButton>
-                              </Stack>
-                            )}
-                          </TableCell>
-                        </StyledTableRow>
-                      );
-                    })}
+                              ) : (
+                                <Stack direction="row" spacing={1}>
+                                  <StyledButton
+                                    variant="outlined"
+                                    size="small"
+                                    onClick={() => handleOpenMatchDialog(match)}
+                                    startIcon={<EditIcon />}
+                                  >
+                                    Edit
+                                  </StyledButton>
+                                </Stack>
+                              )}
+                            </TableCell>
+                          </StyledTableRow>
+                        );
+                      })}
                   </TableBody>
                 </Table>
               </TableContainer>
             </TabPanel>
 
-            <Dialog 
-              open={openMatchDialog} 
+            <MatchDialog
+              open={openMatchDialog}
               onClose={handleCloseMatchDialog}
-              maxWidth="sm"
-              fullWidth
-            >
-              <DialogTitle color="primary">
-                Record Match Result
-              </DialogTitle>
-              <Divider />
-              <DialogContent>
-                <Box sx={{ mt: 2, mb: 2 }}>
-                  <Typography variant="h6" align="center">
-                    {getPlayerName(selectedMatch?.player1)} vs {getPlayerName(selectedMatch?.player2)}
-                  </Typography>
-                </Box>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Match Result</InputLabel>
-                  <Select
-                    value={matchResult}
-                    onChange={(e) => setMatchResult(e.target.value)}
-                  >
-                    <MenuItem value="win">{getPlayerName(selectedMatch?.player1)} Wins</MenuItem>
-                    <MenuItem value="draw">Draw</MenuItem>
-                    <MenuItem value="loss">{getPlayerName(selectedMatch?.player2)} Wins</MenuItem>
-                  </Select>
-                </FormControl>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <TextField
-                      label={`${getPlayerName(selectedMatch?.player1)} Score`}
-                      type="number"
-                      fullWidth
-                      value={player1Score}
-                      onChange={(e) => {
-                        const value = Math.min(9, Math.max(0, parseInt(e.target.value) || 0));
-                        setPlayer1Score(value);
-                      }}
-                      inputProps={{ min: 0, max: 9 }}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label={`${getPlayerName(selectedMatch?.player2)} Score`}
-                      type="number"
-                      fullWidth
-                      value={player2Score}
-                      onChange={(e) => {
-                        const value = Math.min(9, Math.max(0, parseInt(e.target.value) || 0));
-                        setPlayer2Score(value);
-                      }}
-                      inputProps={{ min: 0, max: 9 }}
-                    />
-                  </Grid>
-                </Grid>
-              </DialogContent>
-              <Divider />
-              <DialogActions>
-                <Button onClick={handleCloseMatchDialog}>
-                  Cancel
-                </Button>
-                <Button 
-                  variant="contained" 
-                  color="primary"
-                  onClick={updateMatchResult}
-                >
-                  Confirm
-                </Button>
-              </DialogActions>
-            </Dialog>
+              match={selectedMatch}
+              players={players}
+              onSave={updateMatchResult}
+            />
 
             <Dialog 
               open={openConfirmationDialog} 
