@@ -46,6 +46,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import { styled } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { keyframes } from '@mui/system';
+import DownloadIcon from '@mui/icons-material/Download';
+import UploadIcon from '@mui/icons-material/Upload';
 
 // Custom styled components
 const StyledTabs = styled(Tabs)(({ theme }) => ({
@@ -761,6 +763,47 @@ const PlayerList = () => {
     }
   };
 
+  const handleExportData = () => {
+    const data = {
+      players: JSON.parse(localStorage.getItem('beybladePlayers')) || [],
+      schedule: JSON.parse(localStorage.getItem('beybladeSchedule')) || []
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'beyblade_league_data.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.players && data.schedule) {
+            localStorage.setItem('beybladePlayers', JSON.stringify(data.players));
+            localStorage.setItem('beybladeSchedule', JSON.stringify(data.schedule));
+            setPlayers(data.players);
+            setSchedule(data.schedule);
+            alert('Data imported successfully!');
+          } else {
+            alert('Invalid data format. Please check the file.');
+          }
+        } catch (error) {
+          alert('Error importing data. Please check the file format.');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh', pb: 10 }}>
       <BackgroundImage />
@@ -822,6 +865,30 @@ const PlayerList = () => {
                   Player Rankings
                 </Typography>
                 <Stack direction="row" spacing={2}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleExportData}
+                    sx={{ minWidth: '120px' }}
+                  >
+                    Export
+                  </Button>
+                  <Button
+                    component="label"
+                    variant="contained"
+                    color="primary"
+                    startIcon={<UploadIcon />}
+                    sx={{ minWidth: '120px' }}
+                  >
+                    Import
+                    <input
+                      type="file"
+                      hidden
+                      accept=".json"
+                      onChange={handleImportData}
+                    />
+                  </Button>
                   <StyledButton
                     variant="contained"
                     color="error"
