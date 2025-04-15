@@ -1120,14 +1120,14 @@ const PlayerList = () => {
                           return b.points - a.points;
                         }
                         
-                        // If points are equal, sort by total score (GF + GA)
-                        const aScore = (a.gf || 0) + (a.ga || 0);
-                        const bScore = (b.gf || 0) + (b.ga || 0);
+                        // If points are equal, sort by goal difference (GF - GA)
+                        const aDiff = (a.gf || 0) - (a.ga || 0);
+                        const bDiff = (b.gf || 0) - (b.ga || 0);
                         
-                        return bScore - aScore;
+                        return bDiff - aDiff;
                       })
                       .map((player, index) => {
-                        const totalScore = (player.gf || 0) + (player.ga || 0);
+                        const goalDiff = (player.gf || 0) - (player.ga || 0);
                         return (
                           <StyledTableRow 
                             key={player.id}
@@ -1155,10 +1155,10 @@ const PlayerList = () => {
                             <TableCell align="right" sx={{ color: 'success.main' }}>+{player.gf || 0}</TableCell>
                             <TableCell align="right" sx={{ color: 'error.main' }}>{player.ga || 0}</TableCell>
                             <TableCell align="right" sx={{ 
-                              color: totalScore > 0 ? 'success.main' : totalScore < 0 ? 'error.main' : 'text.primary',
+                              color: goalDiff > 0 ? 'success.main' : goalDiff < 0 ? 'error.main' : 'text.primary',
                               fontWeight: 'bold'
                             }}>
-                              {totalScore > 0 ? '+' : ''}{totalScore}
+                              {goalDiff > 0 ? '+' : ''}{goalDiff}
                             </TableCell>
                             <TableCell align="right" sx={{ fontWeight: 'bold' }}>{player.points}</TableCell>
                             <TableCell align="right">
