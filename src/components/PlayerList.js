@@ -207,7 +207,7 @@ const BEYBLADE_IMAGES = {
   background: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTc7p4LxwL67h5_tHQv6v1N7T5hAP7l1GkHEQ&s',
   trophy: 'https://res.cloudinary.com/teepublic/image/private/s--0AM6a7KX--/t_Resized%20Artwork/c_fit,g_north_west,h_954,w_954/co_000000,e_outline:48/co_000000,e_outline:inner_fill:48/co_ffffff,e_outline:48/co_ffffff,e_outline:inner_fill:48/co_bbbbbb,e_outline:3:1000/c_mpad,g_center,h_1260,w_1260/b_rgb:eeeeee/c_limit,f_auto,h_630,q_auto:good:420,w_630/v1695484627/production/designs/50954535_0.jpg',
   arena: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Takara_Tomy_Logo.png/1200px-Takara_Tomy_Logo.png',
-  sponsored: 'https://www.pajak.go.id/sites/default/files/2024-09/logoo%20coretax.jpg', // Template for sponsored by image
+  sponsored: 'https://cleanshop77.ru/upload/iblock/16c/pdytitxetbmsi1rgvm69ln5vbfw1upf1.jpg', // Template for sponsored by image
   beyblade3d: 'https://media1.giphy.com/media/howrt5MNuvEkOWNUji/giphy.gif?cid=6c09b9528m4zhghfmtrag8iwxiklxr90e75k8kcsnoj0zn70&ep=v1_internal_gif_by_id&rid=giphy.gif&ct=s',
 };
 
@@ -347,6 +347,11 @@ const PlayerList = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [winner, setWinner] = useState(null);
+  const [openEditPlayerDialog, setOpenEditPlayerDialog] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState(null);
+  const [editPlayerName, setEditPlayerName] = useState('');
+  const [editPlayerImage, setEditPlayerImage] = useState(null);
+  const [editImagePreview, setEditImagePreview] = useState(null);
 
   useEffect(() => {
     const savedPlayers = JSON.parse(localStorage.getItem('beybladePlayers')) || [];
@@ -710,6 +715,52 @@ const PlayerList = () => {
     checkAllMatchesCompleted();
   }, [schedule, players]);
 
+  const handleOpenEditPlayer = (player) => {
+    setEditingPlayer(player);
+    setEditPlayerName(player.name);
+    setEditPlayerImage(null);
+    setEditImagePreview(player.image);
+    setOpenEditPlayerDialog(true);
+  };
+
+  const handleCloseEditPlayer = () => {
+    setOpenEditPlayerDialog(false);
+    setEditingPlayer(null);
+    setEditPlayerName('');
+    setEditPlayerImage(null);
+    setEditImagePreview(null);
+  };
+
+  const handleEditImageChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setEditPlayerImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEditPlayer = () => {
+    if (editingPlayer && editPlayerName.trim()) {
+      const updatedPlayers = players.map(player => {
+        if (player.id === editingPlayer.id) {
+          return {
+            ...player,
+            name: editPlayerName.trim(),
+            image: editImagePreview || player.image,
+          };
+        }
+        return player;
+      });
+      setPlayers(updatedPlayers);
+      localStorage.setItem('beybladePlayers', JSON.stringify(updatedPlayers));
+      handleCloseEditPlayer();
+    }
+  };
+
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh', pb: 10 }}>
       <BackgroundImage />
@@ -880,13 +931,22 @@ const PlayerList = () => {
                             </TableCell>
                             <TableCell align="right">{player.points}</TableCell>
                             <TableCell align="right">
-                              <IconButton
-                                color="error"
-                                onClick={() => handleOpenConfirmation('delete', player.id)}
-                                size="small"
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
+                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <IconButton
+                                  color="primary"
+                                  onClick={() => handleOpenEditPlayer(player)}
+                                  size="small"
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  color="error"
+                                  onClick={() => handleOpenConfirmation('delete', player.id)}
+                                  size="small"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Stack>
                             </TableCell>
                           </StyledTableRow>
                         );
@@ -1270,6 +1330,68 @@ const PlayerList = () => {
                   disabled={!newPlayerName.trim()}
                 >
                   Add
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            <Dialog 
+              open={openEditPlayerDialog} 
+              onClose={handleCloseEditPlayer}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle color="primary">
+                Edit Player
+              </DialogTitle>
+              <Divider />
+              <DialogContent>
+                <Box sx={{ mt: 2, mb: 2 }}>
+                  <Stack spacing={2}>
+                    <TextField
+                      label="Player Name"
+                      fullWidth
+                      value={editPlayerName}
+                      onChange={(e) => setEditPlayerName(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleEditPlayer();
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<CloudUploadIcon />}
+                      fullWidth
+                    >
+                      Upload New Beyblade Image
+                      <VisuallyHiddenInput 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleEditImageChange}
+                      />
+                    </Button>
+                    {editImagePreview && (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                        <PlayerImage src={editImagePreview} alt="Beyblade Preview" />
+                      </Box>
+                    )}
+                  </Stack>
+                </Box>
+              </DialogContent>
+              <Divider />
+              <DialogActions>
+                <Button onClick={handleCloseEditPlayer}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="contained" 
+                  color="primary"
+                  onClick={handleEditPlayer}
+                  disabled={!editPlayerName.trim()}
+                >
+                  Save Changes
                 </Button>
               </DialogActions>
             </Dialog>
