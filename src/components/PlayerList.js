@@ -33,6 +33,9 @@ import {
   Divider,
   Fade,
   Zoom,
+  CircularProgress,
+  LinearProgress,
+  Rating,
 } from '@mui/material';
 import SportsScoreIcon from '@mui/icons-material/SportsScore';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -50,6 +53,14 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Autocomplete from '@mui/material/Autocomplete';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import StarIcon from '@mui/icons-material/Star';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrophyIcon from '@mui/icons-material/EmojiEvents';
+import ScoreboardIcon from '@mui/icons-material/Scoreboard';
+import BuildIcon from '@mui/icons-material/Build';
+import BeybladeCustomizer from './BeybladeCustomizer';
+import BattleSimulator from './BattleSimulator';
 
 // Custom styled components
 const StyledTabs = styled(Tabs)(({ theme }) => ({
@@ -68,17 +79,17 @@ const StyledTab = styled(Tab)(({ theme }) => ({
 const StyledTableHead = styled(TableHead)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
   '& .MuiTableCell-head': {
-    color: theme.palette.primary.contrastText,
+    color: theme.palette.common.white, // Always use white text on colored background
     fontWeight: 'bold',
   },
 }));
 
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:nth-of-type(odd)': {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.05) : theme.palette.action.hover,
   },
   '&:hover': {
-    backgroundColor: theme.palette.action.selected,
+    backgroundColor: theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.1) : theme.palette.action.selected,
   },
 }));
 
@@ -236,7 +247,8 @@ const LogoImage = styled('img')(({ theme }) => ({
   filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
 }));
 
-const TrophyIcon = styled('img')(({ theme }) => ({
+// Change the TrophyIcon styled component to TrophyImage
+const TrophyImage = styled('img')(({ theme }) => ({
   width: '24px',
   height: '24px',
   marginRight: theme.spacing(1),
@@ -274,13 +286,16 @@ const SponsoredImage = styled('img')(({ theme }) => ({
 
 // Add new styled components for rules section
 const RulesContainer = styled(Box)(({ theme }) => ({
-  background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.95)}, ${alpha(theme.palette.background.paper, 0.85)})`,
+  background: theme.palette.mode === 'dark' 
+    ? `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.95)}, ${alpha(theme.palette.background.paper, 0.85)})` 
+    : `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.95)}, ${alpha(theme.palette.background.paper, 0.85)})`,
   backdropFilter: 'blur(10px)',
   borderRadius: theme.shape.borderRadius * 2,
   padding: theme.spacing(4),
   margin: theme.spacing(4, 0),
   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
   border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+  color: theme.palette.text.primary, // Ensure proper text color
 }));
 
 const RuleItem = styled(Box)(({ theme }) => ({
@@ -289,10 +304,14 @@ const RuleItem = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(3),
   padding: theme.spacing(2),
   borderRadius: theme.shape.borderRadius,
-  background: alpha(theme.palette.primary.main, 0.05),
+  background: theme.palette.mode === 'dark' 
+    ? alpha(theme.palette.primary.main, 0.15)
+    : alpha(theme.palette.primary.main, 0.05),
   transition: 'all 0.3s ease',
   '&:hover': {
-    background: alpha(theme.palette.primary.main, 0.1),
+    background: theme.palette.mode === 'dark' 
+      ? alpha(theme.palette.primary.main, 0.2)
+      : alpha(theme.palette.primary.main, 0.1),
     transform: 'translateX(10px)',
   },
 }));
@@ -334,6 +353,15 @@ const MatchDialog = ({ open, onClose, match, players, onSave }) => {
   const [player1Score, setPlayer1Score] = useState(match?.player1Score || 0);
   const [player2Score, setPlayer2Score] = useState(match?.player2Score || 0);
   const [result, setResult] = useState(match?.result || '');
+
+  // Update state when match prop changes
+  useEffect(() => {
+    if (match) {
+      setPlayer1Score(match.player1Score || 0);
+      setPlayer2Score(match.player2Score || 0);
+      setResult(match.result || '');
+    }
+  }, [match]);
 
   // Auto-calculate result based on scores
   useEffect(() => {
@@ -390,7 +418,7 @@ const MatchDialog = ({ open, onClose, match, players, onSave }) => {
               fullWidth
               value={player1Score}
               onChange={(e) => {
-                const value = Math.min(9, Math.max(0, parseInt(e.target.value) || 0));
+                const value = Math.max(0, parseInt(e.target.value) || 0);
                 setPlayer1Score(value);
               }}
               inputProps={{ min: 0, max: 9 }}
@@ -403,7 +431,7 @@ const MatchDialog = ({ open, onClose, match, players, onSave }) => {
               fullWidth
               value={player2Score}
               onChange={(e) => {
-                const value = Math.min(9, Math.max(0, parseInt(e.target.value) || 0));
+                const value = Math.max(0, parseInt(e.target.value) || 0);
                 setPlayer2Score(value);
               }}
               inputProps={{ min: 0, max: 9 }}
@@ -428,6 +456,47 @@ const MatchDialog = ({ open, onClose, match, players, onSave }) => {
   );
 };
 
+// Add new styled components for stats section
+const StatCard = styled(Card)(({ theme }) => ({
+  height: '100%',
+  transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
+  '&:hover': {
+    transform: 'translateY(-5px)',
+    boxShadow: '0 12px 20px rgba(0,0,0,0.1)',
+  },
+}));
+
+const BeybladeRating = styled(Rating)(({ theme }) => ({
+  '& .MuiRating-iconFilled': {
+    color: theme.palette.primary.main,
+  },
+}));
+
+const BeyStatProgressBar = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  height: '25px',
+  borderRadius: theme.shape.borderRadius,
+  overflow: 'hidden',
+  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: '100%',
+    backgroundColor: theme.palette.primary.main,
+    transition: 'width 1s ease-in-out',
+  },
+}));
+
+const StatValue = styled(Typography)(({ theme }) => ({
+  fontWeight: 'bold',
+  fontSize: '2rem',
+  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+}));
+
 const PlayerList = () => {
   const theme = useTheme();
   const [players, setPlayers] = useState([]);
@@ -435,9 +504,6 @@ const PlayerList = () => {
   const [currentTab, setCurrentTab] = useState(0);
   const [openMatchDialog, setOpenMatchDialog] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState(null);
-  const [matchResult, setMatchResult] = useState('win');
-  const [player1Score, setPlayer1Score] = useState(3);
-  const [player2Score, setPlayer2Score] = useState(0);
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [password, setPassword] = useState('');
   const [isFirstAttempt, setIsFirstAttempt] = useState(true);
@@ -458,13 +524,29 @@ const PlayerList = () => {
   const [searchAway, setSearchAway] = useState('');
   const [searchAny, setSearchAny] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [beybladeRatings, setBeybladeRatings] = useState({});
+  const [showBeybladeDetails, setShowBeybladeDetails] = useState(false);
+  const [selectedBeyblade, setSelectedBeyblade] = useState(null);
+  const [customBeyblade, setCustomBeyblade] = useState({});
 
   useEffect(() => {
     const savedPlayers = JSON.parse(localStorage.getItem('beybladePlayers')) || [];
     const savedSchedule = JSON.parse(localStorage.getItem('beybladeSchedule')) || [];
     setPlayers(savedPlayers);
     setSchedule(savedSchedule);
+    
+    // Calculate beyblade ratings when players are loaded
+    if (savedPlayers.length > 0) {
+      calculateBeybladeRatings();
+    }
   }, []);
+
+  // Update beyblade ratings when player stats change
+  useEffect(() => {
+    if (players.length > 0) {
+      calculateBeybladeRatings();
+    }
+  }, [players]);
 
   const calculateRankings = () => {
     // Reset all player stats
@@ -521,22 +603,6 @@ const PlayerList = () => {
 
   const handleOpenMatchDialog = (match) => {
     setSelectedMatch(match);
-    if (match.completed) {
-      setMatchResult(match.result);
-      setPlayer1Score(match.player1Score);
-      setPlayer2Score(match.player2Score);
-    } else {
-      // Auto-detect winner based on scores
-      if (player1Score > player2Score) {
-        setMatchResult('win');
-      } else if (player1Score < player2Score) {
-        setMatchResult('loss');
-      } else {
-        setMatchResult('draw');
-      }
-      setPlayer1Score(3);
-      setPlayer2Score(0);
-    }
     setOpenMatchDialog(true);
   };
 
@@ -545,8 +611,8 @@ const PlayerList = () => {
     setSelectedMatch(null);
   };
 
-  const updateMatchResult = () => {
-    if (!selectedMatch) return;
+  const updateMatchResult = (updatedMatch) => {
+    if (!updatedMatch) return;
 
     // First, revert the previous match result if this is an edit
     if (selectedMatch.completed) {
@@ -565,18 +631,18 @@ const PlayerList = () => {
             wins = isPlayer1 ? -1 : 0;
             losses = isPlayer1 ? 0 : -1;
             gf = isPlayer1 ? -selectedMatch.player1Score : -selectedMatch.player2Score;
-            ga = isPlayer1 ? selectedMatch.player2Score : selectedMatch.player1Score;
+            ga = isPlayer1 ? -selectedMatch.player2Score : -selectedMatch.player1Score;
           } else if (selectedMatch.result === 'draw') {
             points = -1;
             draws = -1;
             gf = isPlayer1 ? -selectedMatch.player1Score : -selectedMatch.player2Score;
-            ga = isPlayer1 ? selectedMatch.player2Score : selectedMatch.player1Score;
+            ga = isPlayer1 ? -selectedMatch.player2Score : -selectedMatch.player1Score;
           } else {
             points = isPlayer1 ? 0 : -3;
             wins = isPlayer1 ? 0 : -1;
             losses = isPlayer1 ? -1 : 0;
             gf = isPlayer1 ? -selectedMatch.player1Score : -selectedMatch.player2Score;
-            ga = isPlayer1 ? selectedMatch.player2Score : selectedMatch.player1Score;
+            ga = isPlayer1 ? -selectedMatch.player2Score : -selectedMatch.player1Score;
           }
 
           return {
@@ -601,9 +667,9 @@ const PlayerList = () => {
         return {
           ...match,
           completed: true,
-          result: matchResult,
-          player1Score,
-          player2Score,
+          result: updatedMatch.result,
+          player1Score: updatedMatch.player1Score,
+          player2Score: updatedMatch.player2Score,
         };
       }
       return match;
@@ -620,23 +686,23 @@ const PlayerList = () => {
         let gf = 0;
         let ga = 0;
 
-        if (matchResult === 'win') {
+        if (updatedMatch.result === 'win') {
           points = isPlayer1 ? 3 : 0;
           wins = isPlayer1 ? 1 : 0;
           losses = isPlayer1 ? 0 : 1;
-          gf = isPlayer1 ? player1Score : player2Score;
-          ga = isPlayer1 ? -player2Score : -player1Score;
-        } else if (matchResult === 'draw') {
+          gf = isPlayer1 ? updatedMatch.player1Score : updatedMatch.player2Score;
+          ga = isPlayer1 ? updatedMatch.player2Score : updatedMatch.player1Score;
+        } else if (updatedMatch.result === 'draw') {
           points = 1;
           draws = 1;
-          gf = isPlayer1 ? player1Score : player2Score;
-          ga = isPlayer1 ? -player2Score : -player1Score;
+          gf = isPlayer1 ? updatedMatch.player1Score : updatedMatch.player2Score;
+          ga = isPlayer1 ? updatedMatch.player2Score : updatedMatch.player1Score;
         } else {
           points = isPlayer1 ? 0 : 3;
           wins = isPlayer1 ? 0 : 1;
           losses = isPlayer1 ? 1 : 0;
-          gf = isPlayer1 ? player1Score : player2Score;
-          ga = isPlayer1 ? -player2Score : -player1Score;
+          gf = isPlayer1 ? updatedMatch.player1Score : updatedMatch.player2Score;
+          ga = isPlayer1 ? updatedMatch.player2Score : updatedMatch.player1Score;
         }
 
         return {
@@ -968,6 +1034,62 @@ const PlayerList = () => {
     }
   };
 
+  // Add new function to calculate beyblade ratings
+  const calculateBeybladeRatings = () => {
+    const ratings = {};
+    
+    players.forEach(player => {
+      // Calculate win rate
+      const totalGames = player.gamesPlayed || 0;
+      const winRate = totalGames > 0 ? (player.wins / totalGames) * 100 : 0;
+      
+      // Calculate attack rating based on goals scored
+      const attackRating = Math.min(5, Math.round((player.gf || 0) / 2));
+      
+      // Calculate defense rating based on goals conceded (inverse)
+      const defenseRating = Math.min(5, Math.round(5 - ((player.ga || 0) / 5)));
+      
+      // Calculate overall rating based on just attack and defense (removed stamina)
+      const overallRating = Math.round((attackRating + defenseRating) / 2 * 10) / 10;
+      
+      ratings[player.id] = {
+        winRate,
+        attackRating,
+        defenseRating,
+        overallRating
+      };
+    });
+    
+    setBeybladeRatings(ratings);
+  };
+  
+  const handleShowBeybladeDetails = (player) => {
+    setSelectedBeyblade(player);
+    setShowBeybladeDetails(true);
+  };
+  
+  const handleCloseBeybladeDetails = () => {
+    setShowBeybladeDetails(false);
+  };
+
+  const handleSaveCustomBeyblade = (beyblade) => {
+    if (editingPlayer) {
+      // Save customized beyblade to player
+      const updatedPlayers = players.map(player => {
+        if (player.id === editingPlayer.id) {
+          return {
+            ...player,
+            customBeyblade: beyblade,
+            image: beyblade.image // Use the beyblade image as player avatar
+          };
+        }
+        return player;
+      });
+      setPlayers(updatedPlayers);
+      localStorage.setItem('beybladePlayers', JSON.stringify(updatedPlayers));
+    }
+  };
+
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh', pb: 10 }}>
       <BackgroundImage />
@@ -1004,6 +1126,7 @@ const PlayerList = () => {
                 >
                   <StyledTab label="Rankings" icon={<EmojiEventsIcon />} />
                   <StyledTab label="Schedule" icon={<EventIcon />} />
+                  <StyledTab label="Beyblade Stats" icon={<BarChartIcon />} />
                 </StyledTabs>
                 <StyledButton
                   variant="contained"
@@ -1028,13 +1151,14 @@ const PlayerList = () => {
                 <Typography variant="h5" component="h2" color="primary">
                   Player Rankings
                 </Typography>
-                <Stack direction="row" spacing={2}>
+                <Stack direction="row" spacing={1}>
                   <Button
                     variant="contained"
                     color="primary"
                     startIcon={<RefreshIcon />}
                     onClick={calculateRankings}
-                    sx={{ minWidth: '120px' }}
+                    size="small"
+                    sx={{ minWidth: '100px' }}
                   >
                     Refresh
                   </Button>
@@ -1043,7 +1167,8 @@ const PlayerList = () => {
                     color="primary"
                     startIcon={<DownloadIcon />}
                     onClick={handleExportData}
-                    sx={{ minWidth: '120px' }}
+                    size="small"
+                    sx={{ minWidth: '100px' }}
                   >
                     Export
                   </Button>
@@ -1052,7 +1177,8 @@ const PlayerList = () => {
                     variant="contained"
                     color="primary"
                     startIcon={<UploadIcon />}
-                    sx={{ minWidth: '120px' }}
+                    size="small"
+                    sx={{ minWidth: '100px' }}
                   >
                     Import
                     <input
@@ -1068,6 +1194,7 @@ const PlayerList = () => {
                     startIcon={<RestartAltIcon />}
                     onClick={() => handleOpenConfirmation('reset')}
                     fullWidth={{ xs: true, sm: false }}
+                    size="small"
                   >
                     Reset All Stats & Schedule
                   </StyledButton>
@@ -1077,12 +1204,14 @@ const PlayerList = () => {
                     startIcon={<DeleteIcon />}
                     onClick={() => handleOpenConfirmation('deleteAll')}
                     fullWidth={{ xs: true, sm: false }}
+                    size="small"
                     disabled={players.length === 0}
                   >
                     Delete All Players
                   </StyledButton>
                 </Stack>
               </Stack>
+              
               <TableContainer 
                 component={Paper} 
                 elevation={2}
@@ -1216,7 +1345,7 @@ const PlayerList = () => {
                 <RuleItem>
                   <RuleNumber>4</RuleNumber>
                   <RuleText>
-                    Battle Arena will be held at <strong>Budapest</strong>, league will be start at <strong>15/04/25 - 17:00 WIB</strong>
+                    Battle Arena will be held at <strong>Budapest</strong>
                   </RuleText>
                 </RuleItem>
                 <RuleItem>
@@ -1491,6 +1620,185 @@ const PlayerList = () => {
               </TableContainer>
             </TabPanel>
 
+            <TabPanel value={currentTab} index={2}>
+              <Stack 
+                direction={{ xs: 'column', sm: 'row' }} 
+                justifyContent="space-between" 
+                alignItems={{ xs: 'stretch', sm: 'center' }} 
+                spacing={2}
+                mb={3}
+              >
+                <Typography variant="h5" component="h2" color="primary">
+                  Beyblade Performance Analytics
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<RefreshIcon />}
+                  onClick={calculateBeybladeRatings}
+                  size="small"
+                >
+                  Refresh Stats
+                </Button>
+              </Stack>
+              
+              <Grid container spacing={3} sx={{ mb: 4 }}>
+                {players.map(player => (
+                  <Grid item xs={12} sm={6} md={4} key={player.id}>
+                    <StatCard>
+                      <CardContent>
+                        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+                          {player.image ? (
+                            <PlayerImage 
+                              src={player.image} 
+                              alt={player.name}
+                              sx={{ width: 60, height: 60 }}
+                            />
+                          ) : (
+                            <EmojiEventsIcon sx={{ fontSize: 60, color: 'primary.main' }} />
+                          )}
+                          <Box>
+                            <Typography variant="h6" fontWeight="bold">
+                              {player.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Games: {player.gamesPlayed || 0} • Points: {player.points || 0}
+                            </Typography>
+                            <BeybladeRating 
+                              value={beybladeRatings[player.id]?.overallRating || 0}
+                              precision={0.5}
+                              readOnly
+                              icon={<StarIcon fontSize="inherit" />}
+                            />
+                          </Box>
+                        </Stack>
+                        
+                        <Divider sx={{ mb: 2 }} />
+                        
+                        <Stack spacing={2}>
+                          <Box>
+                            <Typography variant="body2" gutterBottom display="flex" justifyContent="space-between">
+                              <span>Attack</span>
+                              <span>{beybladeRatings[player.id]?.attackRating || 0}/5</span>
+                            </Typography>
+                            <LinearProgress 
+                              variant="determinate" 
+                              value={(beybladeRatings[player.id]?.attackRating || 0) * 20} 
+                              color="error"
+                              sx={{ height: 8, borderRadius: 5 }}
+                            />
+                          </Box>
+                          
+                          <Box>
+                            <Typography variant="body2" gutterBottom display="flex" justifyContent="space-between">
+                              <span>Defense</span>
+                              <span>{beybladeRatings[player.id]?.defenseRating || 0}/5</span>
+                            </Typography>
+                            <LinearProgress 
+                              variant="determinate" 
+                              value={(beybladeRatings[player.id]?.defenseRating || 0) * 20} 
+                              color="primary"
+                              sx={{ height: 8, borderRadius: 5 }}
+                            />
+                          </Box>
+                        </Stack>
+                        
+                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            size="small"
+                            onClick={() => handleShowBeybladeDetails(player)}
+                            startIcon={<BarChartIcon />}
+                          >
+                            Detailed Stats
+                          </Button>
+                        </Box>
+                      </CardContent>
+                    </StatCard>
+                  </Grid>
+                ))}
+              </Grid>
+
+              <Box sx={{ mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 2 }}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  League Statistics Summary
+                </Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Box textAlign="center">
+                      <TrophyIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                      <StatValue>
+                        {players.reduce((sum, player) => sum + (player.wins || 0), 0)}
+                      </StatValue>
+                      <Typography variant="body2" color="text.secondary">
+                        Total Wins
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Box textAlign="center">
+                      <ScoreboardIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                      <StatValue>
+                        {players.reduce((sum, player) => sum + (player.gf || 0), 0)}
+                      </StatValue>
+                      <Typography variant="body2" color="text.secondary">
+                        Total Goals
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Box textAlign="center">
+                      <TrendingUpIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                      <StatValue>
+                        {players.length > 0 
+                          ? (players.reduce((sum, player) => sum + (player.gamesPlayed || 0), 0) / players.length).toFixed(1) 
+                          : 0}
+                      </StatValue>
+                      <Typography variant="body2" color="text.secondary">
+                        Avg. Games Per Player
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Box textAlign="center">
+                      <StarIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                      <StatValue>
+                        {players.length > 0 
+                          ? (players.reduce((sum, player) => sum + (player.points || 0), 0) / players.length).toFixed(1) 
+                          : 0}
+                      </StatValue>
+                      <Typography variant="body2" color="text.secondary">
+                        Avg. Points Per Player
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+              
+              <RulesContainer>
+                <RulesTitle variant="h4">Beyblade Performance Analysis Guide</RulesTitle>
+                <RuleItem>
+                  <RuleNumber>1</RuleNumber>
+                  <RuleText>
+                    <strong>Attack Rating</strong> is calculated based on the number of goals scored by the player's Beyblade
+                  </RuleText>
+                </RuleItem>
+                <RuleItem>
+                  <RuleNumber>2</RuleNumber>
+                  <RuleText>
+                    <strong>Defense Rating</strong> is determined by how few goals the player's Beyblade concedes
+                  </RuleText>
+                </RuleItem>
+                <RuleItem>
+                  <RuleNumber>3</RuleNumber>
+                  <RuleText>
+                    <strong>Overall Rating</strong> is the average of Attack and Defense ratings
+                  </RuleText>
+                </RuleItem>
+              </RulesContainer>
+            </TabPanel>
+
             <MatchDialog
               open={openMatchDialog}
               onClose={handleCloseMatchDialog}
@@ -1655,6 +1963,14 @@ const PlayerList = () => {
                         <PlayerImage src={editImagePreview} alt="Beyblade Preview" />
                       </Box>
                     )}
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="subtitle1" color="primary">
+                      Customize Beyblade
+                    </Typography>
+                    <BeybladeCustomizer 
+                      onSave={handleSaveCustomBeyblade} 
+                      playerBeyblade={editingPlayer?.customBeyblade || null}
+                    />
                   </Stack>
                 </Box>
               </DialogContent>
@@ -1672,6 +1988,164 @@ const PlayerList = () => {
                   Save Changes
                 </Button>
               </DialogActions>
+            </Dialog>
+
+            {/* Add new dialog for Beyblade Details */}
+            <Dialog 
+              open={showBeybladeDetails} 
+              onClose={handleCloseBeybladeDetails}
+              maxWidth="md"
+              fullWidth
+            >
+              {selectedBeyblade && (
+                <>
+                  <DialogTitle color="primary">
+                    {selectedBeyblade.name} - Beyblade Performance Details
+                  </DialogTitle>
+                  <Divider />
+                  <DialogContent>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center" sx={{ mb: 3 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        {selectedBeyblade.image ? (
+                          <PlayerImage 
+                            src={selectedBeyblade.image} 
+                            alt={selectedBeyblade.name}
+                            sx={{ width: 120, height: 120 }}
+                          />
+                        ) : (
+                          <EmojiEventsIcon sx={{ fontSize: 120, color: 'primary.main' }} />
+                        )}
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h5" gutterBottom fontWeight="bold">
+                          {selectedBeyblade.name}
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Games Played</Typography>
+                            <Typography variant="h6">{selectedBeyblade.gamesPlayed || 0}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Win Rate</Typography>
+                            <Typography variant="h6">{
+                              selectedBeyblade.gamesPlayed 
+                                ? Math.round((selectedBeyblade.wins / selectedBeyblade.gamesPlayed) * 100) 
+                                : 0
+                            }%</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Total Points</Typography>
+                            <Typography variant="h6">{selectedBeyblade.points || 0}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Goal Difference</Typography>
+                            <Typography variant="h6" color={
+                              (selectedBeyblade.gf || 0) - (selectedBeyblade.ga || 0) > 0 
+                                ? 'success.main' 
+                                : (selectedBeyblade.gf || 0) - (selectedBeyblade.ga || 0) < 0 
+                                  ? 'error.main' 
+                                  : 'text.primary'
+                            }>
+                              {(selectedBeyblade.gf || 0) - (selectedBeyblade.ga || 0) > 0 ? '+' : ''}
+                              {(selectedBeyblade.gf || 0) - (selectedBeyblade.ga || 0)}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Stack>
+
+                    <Divider sx={{ mb: 3 }} />
+                    
+                    <Typography variant="h6" gutterBottom color="primary">
+                      Performance Breakdown
+                    </Typography>
+                    
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} md={6}>
+                        <Box sx={{ mb: 3 }}>
+                          <Typography variant="body2" gutterBottom>
+                            Attack Rating ({beybladeRatings[selectedBeyblade.id]?.attackRating || 0}/5)
+                          </Typography>
+                          <BeybladeRating 
+                            value={beybladeRatings[selectedBeyblade.id]?.attackRating || 0}
+                            readOnly
+                            icon={<StarIcon fontSize="inherit" />}
+                            emptyIcon={<StarIcon fontSize="inherit" />}
+                          />
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Goals Scored: {selectedBeyblade.gf || 0}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ mb: 3 }}>
+                          <Typography variant="body2" gutterBottom>
+                            Defense Rating ({beybladeRatings[selectedBeyblade.id]?.defenseRating || 0}/5)
+                          </Typography>
+                          <BeybladeRating 
+                            value={beybladeRatings[selectedBeyblade.id]?.defenseRating || 0}
+                            readOnly
+                            icon={<StarIcon fontSize="inherit" />}
+                            emptyIcon={<StarIcon fontSize="inherit" />}
+                          />
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Goals Conceded: {selectedBeyblade.ga || 0}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <Box>
+                            <Typography variant="h6" gutterBottom color="primary" sx={{ mb: 2 }}>
+                              Match Outcomes
+                            </Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Box sx={{ textAlign: 'center', flex: 1 }}>
+                                <Typography variant="h4" color="success.main">{selectedBeyblade.wins || 0}</Typography>
+                                <Typography variant="body2" color="text.secondary">Wins</Typography>
+                              </Box>
+                              <Box sx={{ textAlign: 'center', flex: 1 }}>
+                                <Typography variant="h4" color="info.main">{selectedBeyblade.draws || 0}</Typography>
+                                <Typography variant="body2" color="text.secondary">Draws</Typography>
+                              </Box>
+                              <Box sx={{ textAlign: 'center', flex: 1 }}>
+                                <Typography variant="h4" color="error.main">{selectedBeyblade.losses || 0}</Typography>
+                                <Typography variant="body2" color="text.secondary">Losses</Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                          
+                          <Box sx={{ mt: 4, border: 1, borderColor: 'divider', p: 2, borderRadius: 1 }}>
+                            <Typography variant="body1" fontWeight="bold" gutterBottom>
+                              Beyblade Performance Score
+                            </Typography>
+                            <CircularProgress 
+                              variant="determinate" 
+                              value={(beybladeRatings[selectedBeyblade.id]?.overallRating || 0) * 20} 
+                              size={100}
+                              thickness={5}
+                              sx={{ display: 'block', margin: '0 auto' }}
+                            />
+                            <Typography variant="h4" align="center" sx={{ mt: 2 }} color="primary">
+                              {beybladeRatings[selectedBeyblade.id]?.overallRating || 0}/5
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </DialogContent>
+                  <Divider />
+                  <DialogActions>
+                    <Button 
+                      variant="contained" 
+                      color="primary"
+                      onClick={handleCloseBeybladeDetails}
+                    >
+                      Close
+                    </Button>
+                  </DialogActions>
+                </>
+              )}
             </Dialog>
           </CardContent>
         </Card>
