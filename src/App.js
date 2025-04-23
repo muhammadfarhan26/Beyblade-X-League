@@ -13,6 +13,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import MobileStreamPage from './components/MobileStreamPage';
 
 const lightTheme = createTheme({
   palette: {
@@ -153,7 +155,13 @@ function App() {
       </Drawer>
       
       <Box component="main" sx={{ flexGrow: 1, pt: 8 }}>
-        <BeybladeLeague />
+        <Router>
+          <Routes>
+            <Route path="/" element={<PlayerList />} />
+            <Route path="/stream" element={<MobileStreamPage />} />
+            <Route path="*" element={<PlayerList />} />
+          </Routes>
+        </Router>
       </Box>
     </ThemeProvider>
   );

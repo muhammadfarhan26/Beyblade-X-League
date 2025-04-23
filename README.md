@@ -9,6 +9,29 @@ Welcome to the **Beyblade X League**! This is a web application designed to mana
 - **Battle Simulator**: Simulate battles between players' Beyblades with dynamic animations and statistics.
 - **Custom Beyblade Creator**: Customize Beyblades by selecting different parts (blades, discs, drivers) and colors.
 - **Dark Mode Support**: Toggle between light and dark themes for better readability.
+- **Track player rankings, match results, and statistics**
+- **View detailed player and Beyblade performance analytics**
+- **Live stream Beyblade battles directly from mobile devices**
+- **Responsive design for desktop and mobile use**
+
+## Live Mobile Streaming
+
+The app now includes a feature to live stream Beyblade battles directly from your mobile device without requiring any app installation:
+
+1. Navigate to the "Live Stream" tab in the application
+2. Scan the QR code with your mobile phone camera
+3. Open the link in your mobile browser
+4. Allow camera permissions when prompted
+5. Position your phone to capture the Beyblade battle
+6. The stream will appear automatically on the main screen
+
+### Technical Details
+
+- Uses WebRTC for peer-to-peer streaming
+- Works in modern browsers (Chrome, Safari, Firefox)
+- Low latency for real-time viewing
+- Camera can be flipped between front and back
+- Audio can be toggled on/off
 
 ## Technologies Used
 

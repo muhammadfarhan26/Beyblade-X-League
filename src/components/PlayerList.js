@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -61,6 +61,9 @@ import ScoreboardIcon from '@mui/icons-material/Scoreboard';
 import BuildIcon from '@mui/icons-material/Build';
 import BeybladeCustomizer from './BeybladeCustomizer';
 import BattleSimulator from './BattleSimulator';
+import QrCodeIcon from '@mui/icons-material/QrCode';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import ShareIcon from '@mui/icons-material/Share';
 
 // Custom styled components
 const StyledTabs = styled(Tabs)(({ theme }) => ({
@@ -528,6 +531,12 @@ const PlayerList = () => {
   const [showBeybladeDetails, setShowBeybladeDetails] = useState(false);
   const [selectedBeyblade, setSelectedBeyblade] = useState(null);
   const [customBeyblade, setCustomBeyblade] = useState({});
+  const [streamUrl, setStreamUrl] = useState('');
+  const [showStream, setShowStream] = useState(false);
+  const [localStreamId, setLocalStreamId] = useState('');
+  const [qrCodeValue, setQrCodeValue] = useState('');
+  const [peerConnection, setPeerConnection] = useState(null);
+  const remoteVideoRef = useRef(null);
 
   useEffect(() => {
     const savedPlayers = JSON.parse(localStorage.getItem('beybladePlayers')) || [];
@@ -1189,6 +1198,93 @@ const PlayerList = () => {
     }
   };
 
+  // Generate a unique stream ID when component mounts
+  useEffect(() => {
+    const generateStreamId = () => {
+      const id = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      setLocalStreamId(id);
+      // Create QR code URL for mobile streaming
+      const baseUrl = window.location.origin;
+      const streamUrl = `${baseUrl}/stream?id=${id}`;
+      setQrCodeValue(streamUrl);
+    };
+    
+    generateStreamId();
+  }, []);
+
+  // Setup WebRTC connection to receive the stream
+  useEffect(() => {
+    if (currentTab === 3) {
+      setupWebRTCReceiver();
+    }
+    
+    return () => {
+      if (peerConnection) {
+        peerConnection.close();
+      }
+    };
+  }, [currentTab]);
+
+  const setupWebRTCReceiver = () => {
+    // In a real implementation, this would be connected to a signaling server
+    const mockSignalingListen = () => {
+      console.log("Listening for incoming streams with ID:", localStreamId);
+      
+      // For demo purposes, we simulate receiving an offer after 3 seconds
+      setTimeout(() => {
+        if (currentTab === 3) {
+          console.log("Simulating incoming stream!");
+          setShowStream(true);
+          
+          // In a real app, the following would happen when we receive a real offer
+          const mockReceiveOffer = async () => {
+            try {
+              // Create and configure RTCPeerConnection
+              const configuration = {
+                iceServers: [
+                  { urls: 'stun:stun.l.google.com:19302' },
+                  { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+              };
+              
+              const pc = new RTCPeerConnection(configuration);
+              setPeerConnection(pc);
+              
+              // Set up event handlers
+              pc.ontrack = (event) => {
+                console.log("Received remote track", event.track);
+                if (remoteVideoRef.current && event.streams[0]) {
+                  remoteVideoRef.current.srcObject = event.streams[0];
+                }
+              };
+              
+              // In a real app, this would use the actual received offer
+              const mockOffer = {
+                type: 'offer',
+                sdp: 'v=0\r\no=- 123456789 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\na=msid-semantic: WMS stream1\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\nc=IN IP4 0.0.0.0\r\na=rtcp:9 IN IP4 0.0.0.0\r\na=ice-ufrag:someufrag\r\na=ice-pwd:someicepwd\r\na=fingerprint:sha-256 A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0:A0\r\na=setup:actpass\r\na=mid:0\r\na=sendrecv\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=rtpmap:96 VP8/90000\r\na=ssrc:1001 cname:stream1\r\na=ssrc:1001 msid:stream1 video1\r\n'
+              };
+              
+              await pc.setRemoteDescription(new RTCSessionDescription(mockOffer));
+              
+              // Create and set the answer
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              
+              // In a real app, send this answer back through signaling
+              console.log("Created answer:", answer);
+            } catch (err) {
+              console.error("Error setting up WebRTC receiver:", err);
+            }
+          };
+          
+          mockReceiveOffer();
+        }
+      }, 3000);
+    };
+    
+    mockSignalingListen();
+  };
+
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh', pb: 10 }}>
       <BackgroundImage />
@@ -1226,6 +1322,7 @@ const PlayerList = () => {
                   <StyledTab label="Rankings" icon={<EmojiEventsIcon />} />
                   <StyledTab label="Schedule" icon={<EventIcon />} />
                   <StyledTab label="Beyblade Stats" icon={<BarChartIcon />} />
+                  <StyledTab label="Live Stream" icon={<VideocamIcon />} />
                 </StyledTabs>
                 <StyledButton
                   variant="contained"
@@ -1905,6 +2002,172 @@ const PlayerList = () => {
                   </RuleText>
                 </RuleItem>
               </RulesContainer>
+            </TabPanel>
+
+            <TabPanel value={currentTab} index={3}>
+              <Stack 
+                direction={{ xs: 'column', sm: 'row' }} 
+                justifyContent="space-between" 
+                alignItems={{ xs: 'stretch', sm: 'center' }} 
+                spacing={2}
+                mb={3}
+              >
+                <Typography variant="h5" component="h2" color="primary">
+                  Live Beyblade Battles
+                </Typography>
+              </Stack>
+              
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Stream from Mobile
+                      </Typography>
+                      <Typography variant="body2" paragraph>
+                        Scan this QR code with your mobile phone camera to start streaming the battle. No app installation required!
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+                        {qrCodeValue && (
+                          <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeValue)}`}
+                            alt="QR Code for mobile streaming"
+                            style={{ maxWidth: '200px', maxHeight: '200px' }}
+                          />
+                        )}
+                      </Box>
+                      
+                      <Typography variant="body2" sx={{ mt: 2 }}>
+                        Stream ID: <code>{localStreamId}</code>
+                      </Typography>
+                      
+                      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          startIcon={<ShareIcon />}
+                          onClick={() => {
+                            if (navigator.share) {
+                              navigator.share({
+                                title: 'Beyblade X League - Live Stream',
+                                text: 'Join my Beyblade battle live stream!',
+                                url: qrCodeValue,
+                              });
+                            } else {
+                              navigator.clipboard.writeText(qrCodeValue);
+                              alert('Stream link copied to clipboard!');
+                            }
+                          }}
+                        >
+                          Share Stream Link
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <Card sx={{ height: '100%' }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Live View
+                      </Typography>
+                      <Box 
+                        sx={{ 
+                          width: '100%', 
+                          height: 300, 
+                          bgcolor: 'black', 
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          borderRadius: 1,
+                          position: 'relative',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <video 
+                          id="remoteVideo" 
+                          ref={remoteVideoRef}
+                          autoPlay 
+                          playsInline 
+                          style={{ width: '100%', height: '100%', display: showStream ? 'block' : 'none' }}
+                        />
+                        {!showStream && (
+                          <Box sx={{ textAlign: 'center' }}>
+                            <VideocamIcon sx={{ fontSize: 60, mb: 2, opacity: 0.5 }} />
+                            <Typography variant="body1">
+                              Waiting for camera stream...
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 1, opacity: 0.7 }}>
+                              Scan the QR code with your mobile phone
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                      
+                      <Box sx={{ mt: 3 }}>
+                        <Typography variant="body2" gutterBottom>
+                          Instructions:
+                        </Typography>
+                        <ol>
+                          <li>Scan the QR code with your mobile phone camera</li>
+                          <li>Open the link in your mobile browser</li>
+                          <li>Allow camera permissions when prompted</li>
+                          <li>Position your phone to capture the Beyblade battle</li>
+                          <li>The stream will appear automatically in this window</li>
+                        </ol>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Card sx={{ mt: 3 }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        How It Works
+                      </Typography>
+                      <Grid container spacing={3}>
+                        <Grid item xs={12} sm={4}>
+                          <Box sx={{ textAlign: 'center', p: 2 }}>
+                            <QrCodeIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                              Step 1: Scan QR Code
+                            </Typography>
+                            <Typography variant="body2">
+                              Use your phone camera to scan the QR code which opens a special web page.
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <Box sx={{ textAlign: 'center', p: 2 }}>
+                            <VideocamIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                              Step 2: Allow Camera Access
+                            </Typography>
+                            <Typography variant="body2">
+                              Your browser will ask for camera permission. Accept to start streaming.
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <Box sx={{ textAlign: 'center', p: 2 }}>
+                            <StarIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                              Step 3: Start Streaming
+                            </Typography>
+                            <Typography variant="body2">
+                              The live stream appears here automatically using WebRTC technology.
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
             </TabPanel>
 
             <MatchDialog
