@@ -209,6 +209,12 @@ const MobileStreamPage = () => {
   
   // Start streaming
   const startStream = () => {
+    // Check if the browser supports getUserMedia
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('Your browser does not support camera access. Please try using Chrome, Firefox, or Safari.');
+      return;
+    }
+
     // Connect to signaling server first
     mockSignalingConnect(streamId)
       .then(() => setupWebRTC())

@@ -155,13 +155,18 @@ function App() {
       </Drawer>
       
       <Box component="main" sx={{ flexGrow: 1, pt: 8 }}>
-        <Router>
-          <Routes>
-            <Route path="/" element={<PlayerList />} />
-            <Route path="/stream" element={<MobileStreamPage />} />
-            <Route path="*" element={<PlayerList />} />
-          </Routes>
-        </Router>
+        {typeof Router !== 'undefined' ? (
+          <Router>
+            <Routes>
+              <Route path="/" element={<PlayerList />} />
+              <Route path="/stream" element={<MobileStreamPage />} />
+              <Route path="*" element={<PlayerList />} />
+            </Routes>
+          </Router>
+        ) : (
+          // Fallback if Router is not available
+          <PlayerList />
+        )}
       </Box>
     </ThemeProvider>
   );
