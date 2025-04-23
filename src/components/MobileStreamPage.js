@@ -59,9 +59,10 @@ const MobileStreamPage = () => {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState('');
   const [cameraFacing, setCameraFacing] = useState('user'); // 'user' or 'environment'
-  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [audioEnabled, setAudioEnabled] = useState(false); // Start with audio disabled for better performance
   const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected'
-  const [lightweightMode, setLightweightMode] = useState(true); // Default to lightweight mode for better performance
+  const [lightweightMode, setLightweightMode] = useState(true); // Default to lightweight mode
+  const [emergencyMode, setEmergencyMode] = useState(false); // Ultra-minimal mode for problematic devices
   
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -427,7 +428,67 @@ const MobileStreamPage = () => {
     }
   };
   
-  // Stop streaming with better cleanup
+  // Emergency mode - ultra minimal camera access
+  const startEmergencyStream = () => {
+    setError(''); // Clear any previous errors
+    
+    try {
+      // Absolute minimal constraints
+      const minimalConstraints = {
+        audio: false,
+        video: {
+          width: { ideal: 320 },
+          height: { ideal: 240 },
+          frameRate: { max: 10 }
+        }
+      };
+      
+      // Set status first to show something is happening
+      setConnectionStatus('connecting');
+      
+      // Direct camera access - no WebRTC
+      navigator.mediaDevices.getUserMedia(minimalConstraints)
+        .then(stream => {
+          // Store the stream
+          streamRef.current = stream;
+          
+          // Set up video element with minimal properties
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.setAttribute('playsinline', true);
+            videoRef.current.setAttribute('muted', true);
+            videoRef.current.muted = true; // Double ensure muting
+            
+            // Play video
+            videoRef.current.play()
+              .then(() => {
+                setStreaming(true);
+                setConnectionStatus('connected');
+                
+                // Skip WebRTC entirely in emergency mode
+                // Just send a message that we're streaming locally
+                console.log('Emergency mode: Local camera only, no WebRTC');
+                
+                // Notify the user
+                alert('Emergency mode active: Your camera is working locally but not streaming remotely. Show your phone screen to others.');
+              })
+              .catch(playErr => {
+                console.error('Video play failed in emergency mode:', playErr);
+                setError(`Unable to play video in emergency mode. Try tapping the screen.`);
+              });
+          }
+        })
+        .catch(err => {
+          console.error('Emergency mode camera access failed:', err);
+          setError(`Emergency mode failed: ${err.message}. Your device may not support camera access in the browser.`);
+        });
+    } catch (err) {
+      console.error('General error in emergency mode:', err);
+      setError('Emergency mode failed to start. Please try a different device or browser.');
+    }
+  };
+  
+  // Enhanced stop function for all modes
   const stopStream = () => {
     // Clean up video element first
     if (videoRef.current) {
@@ -443,7 +504,7 @@ const MobileStreamPage = () => {
       streamRef.current = null;
     }
     
-    // Finally close peer connection
+    // Finally close peer connection if it exists
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
@@ -471,7 +532,7 @@ const MobileStreamPage = () => {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-            Beyblade X League - Stream
+            {emergencyMode ? "Camera (Emergency Mode)" : "Beyblade X League - Stream"}
           </Typography>
         </Toolbar>
       </AppBar>
@@ -486,15 +547,29 @@ const MobileStreamPage = () => {
             <Typography variant="subtitle1" color="error" gutterBottom>
               {error}
             </Typography>
-            <Button 
-              variant="contained" 
-              color="primary" 
-              onClick={() => window.location.reload()}
-              sx={{ mt: 2 }}
-              size="small"
-            >
-              Try Again
-            </Button>
+            <Stack spacing={1} sx={{ mt: 2 }}>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={() => window.location.reload()}
+                size="small"
+              >
+                Try Again
+              </Button>
+              {!emergencyMode && (
+                <Button 
+                  variant="outlined" 
+                  color="warning" 
+                  onClick={() => {
+                    setEmergencyMode(true);
+                    setError('');
+                  }}
+                  size="small"
+                >
+                  Try Emergency Mode
+                </Button>
+              )}
+            </Stack>
           </Paper>
         ) : (
           <>
@@ -504,7 +579,7 @@ const MobileStreamPage = () => {
                   position: 'relative', 
                   bgcolor: 'black',
                   borderRadius: '4px 4px 0 0',
-                  height: '50vh', // Reduced height for better performance
+                  height: emergencyMode ? '40vh' : '50vh', // Even lower height in emergency mode
                   overflow: 'hidden'
                 }}
               >
@@ -535,6 +610,11 @@ const MobileStreamPage = () => {
                         iOS users: Tap the button below and allow camera access when prompted
                       </Typography>
                     )}
+                    {emergencyMode && (
+                      <Typography variant="body2" align="center" sx={{ mt: 1, color: 'orange' }}>
+                        Emergency Mode: Limited functionality, local camera only
+                      </Typography>
+                    )}
                   </Box>
                 )}
                 
@@ -544,7 +624,7 @@ const MobileStreamPage = () => {
                       position: 'absolute', 
                       top: 8, 
                       right: 8, 
-                      bgcolor: 'success.main',
+                      bgcolor: emergencyMode ? 'warning.main' : 'success.main',
                       color: 'white',
                       borderRadius: 5,
                       px: 1,
@@ -552,7 +632,7 @@ const MobileStreamPage = () => {
                     }}
                   >
                     <Typography variant="caption" fontWeight="bold">
-                      LIVE
+                      {emergencyMode ? 'LOCAL ONLY' : 'LIVE'}
                     </Typography>
                   </Box>
                 )}
@@ -590,13 +670,17 @@ const MobileStreamPage = () => {
                 >
                   {streaming ? (
                     <>
-                      <ControlButton onClick={toggleAudio} color="primary" sx={{ padding: 1 }}>
-                        {audioEnabled ? <MicIcon /> : <MicOffIcon />}
-                      </ControlButton>
+                      {!emergencyMode && (
+                        <ControlButton onClick={toggleAudio} color="primary" sx={{ padding: 1 }}>
+                          {audioEnabled ? <MicIcon /> : <MicOffIcon />}
+                        </ControlButton>
+                      )}
                       
-                      <ControlButton onClick={switchCamera} color="primary" sx={{ padding: 1 }}>
-                        <FlipCameraAndroidIcon />
-                      </ControlButton>
+                      {(!emergencyMode || (emergencyMode && /iPad|iPhone|iPod/.test(navigator.userAgent))) && (
+                        <ControlButton onClick={switchCamera} color="primary" sx={{ padding: 1 }}>
+                          <FlipCameraAndroidIcon />
+                        </ControlButton>
+                      )}
                       
                       <ControlButton onClick={stopStream} color="error" sx={{ padding: 1 }}>
                         <VideocamOffIcon />
@@ -605,45 +689,58 @@ const MobileStreamPage = () => {
                   ) : (
                     <Button
                       variant="contained"
-                      color="primary"
+                      color={emergencyMode ? "warning" : "primary"}
                       startIcon={<VideocamIcon />}
-                      onClick={startStream}
+                      onClick={emergencyMode ? startEmergencyStream : startStream}
                       size="large"
                       fullWidth
                       sx={{ 
                         py: 1, 
                         fontSize: '1rem',
-                        ...((/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) && {
+                        ...((!emergencyMode && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) && {
                           backgroundColor: 'success.main',
                           '&:hover': { backgroundColor: 'success.dark' }
                         })
                       }}
                     >
-                      Start Streaming
+                      {emergencyMode ? "Start Camera (Basic)" : "Start Streaming"}
                     </Button>
                   )}
                 </Stack>
                 
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
                   <Typography variant="caption" color="text.secondary">
-                    ID: <code>{streamId.substring(0, 8)}</code>
+                    Mode: {emergencyMode ? 'Emergency' : (lightweightMode ? 'Lightweight' : 'Standard')}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                      Lightweight Mode
-                    </Typography>
-                    <Switch
-                      size="small"
-                      checked={lightweightMode}
-                      onChange={(e) => setLightweightMode(e.target.checked)}
-                      inputProps={{ 'aria-label': 'toggle lightweight mode' }}
-                    />
-                  </Box>
+                  
+                  {!emergencyMode && (
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                        Lightweight
+                      </Typography>
+                      <Switch
+                        size="small"
+                        checked={lightweightMode}
+                        onChange={(e) => setLightweightMode(e.target.checked)}
+                        inputProps={{ 'aria-label': 'toggle lightweight mode' }}
+                      />
+                    </Box>
+                  )}
                 </Box>
               </CardContent>
             </Card>
             
-            {!lightweightMode && (
+            {(emergencyMode || lightweightMode) && (
+              <Box sx={{ textAlign: 'center', mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {emergencyMode ? 
+                    "Emergency mode: Camera only works locally. Show your phone screen to others." : 
+                    "Running in lightweight mode for better performance."}
+                </Typography>
+              </Box>
+            )}
+            
+            {(!lightweightMode && !emergencyMode) && (
               <Paper sx={{ p: 2, mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>
                   Instructions
@@ -664,14 +761,6 @@ const MobileStreamPage = () => {
                   Note: For best performance, keep this page open and your phone connected to WiFi.
                 </Typography>
               </Paper>
-            )}
-            
-            {lightweightMode && (
-              <Box sx={{ textAlign: 'center', mt: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Running in lightweight mode for better performance.
-                </Typography>
-              </Box>
             )}
           </>
         )}
