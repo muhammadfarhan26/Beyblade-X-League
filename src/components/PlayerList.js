@@ -222,7 +222,7 @@ const BEYBLADE_IMAGES = {
   background: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTc7p4LxwL67h5_tHQv6v1N7T5hAP7l1GkHEQ&s',
   trophy: 'https://res.cloudinary.com/teepublic/image/private/s--0AM6a7KX--/t_Resized%20Artwork/c_fit,g_north_west,h_954,w_954/co_000000,e_outline:48/co_000000,e_outline:inner_fill:48/co_ffffff,e_outline:48/co_ffffff,e_outline:inner_fill:48/co_bbbbbb,e_outline:3:1000/c_mpad,g_center,h_1260,w_1260/b_rgb:eeeeee/c_limit,f_auto,h_630,q_auto:good:420,w_630/v1695484627/production/designs/50954535_0.jpg',
   arena: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Takara_Tomy_Logo.png/1200px-Takara_Tomy_Logo.png',
-  sponsored: 'https://cleanshop77.ru/upload/iblock/16c/pdytitxetbmsi1rgvm69ln5vbfw1upf1.jpg', // Template for sponsored by image
+  sponsored: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Takara_Tomy_Logo.png/1200px-Takara_Tomy_Logo.png', // Template for sponsored by image
   beyblade3d: 'https://media1.giphy.com/media/howrt5MNuvEkOWNUji/giphy.gif?cid=6c09b9528m4zhghfmtrag8iwxiklxr90e75k8kcsnoj0zn70&ep=v1_internal_gif_by_id&rid=giphy.gif&ct=s',
 };
 
@@ -755,8 +755,107 @@ const PlayerList = () => {
       generateSchedule();
     } else if (actionType === 'deleteAll') {
       deleteAllPlayers();
+    } else if (actionType === 'softReset') {
+      softResetSchedule();
     }
     handleCloseConfirmation();
+  };
+
+  const softResetSchedule = () => {
+    if (players.length < 2) {
+      alert('Need at least 2 players to generate a schedule');
+      return;
+    }
+
+    // Find players who don't have any matches in the schedule
+    const playerIds = players.map(p => p.id);
+    const playersInSchedule = new Set();
+    
+    schedule.forEach(match => {
+      playersInSchedule.add(match.player1);
+      playersInSchedule.add(match.player2);
+    });
+    
+    const newPlayerIds = playerIds.filter(id => !playersInSchedule.has(id));
+    
+    // Generate matches between new players and all existing players
+    if (newPlayerIds.length === 0) {
+      alert('No new players found. All players already have matches scheduled.');
+      return;
+    }
+    
+    let newSchedule = [...schedule];
+    let matchIdCounter = Date.now();
+    
+    // Generate matches between new players and all existing players
+    for (let i = 0; i < newPlayerIds.length; i++) {
+      const newPlayerId = newPlayerIds[i];
+      
+      // First, create matches between new player and all existing players
+      for (let j = 0; j < playerIds.length; j++) {
+        const existingPlayerId = playerIds[j];
+        
+        // Skip if it's the same player or another new player that will be handled separately
+        if (existingPlayerId === newPlayerId || newPlayerIds.includes(existingPlayerId)) {
+          continue;
+        }
+        
+        // Add two matches - one home and one away
+        newSchedule.push({
+          id: matchIdCounter++,
+          player1: newPlayerId,
+          player2: existingPlayerId,
+          completed: false,
+          result: null,
+          player1Score: null,
+          player2Score: null,
+          isHome: true, // First match is home for new player
+        });
+        
+        newSchedule.push({
+          id: matchIdCounter++,
+          player1: existingPlayerId,
+          player2: newPlayerId,
+          completed: false,
+          result: null,
+          player1Score: null,
+          player2Score: null,
+          isHome: true, // Second match is home for existing player
+        });
+      }
+    }
+    
+    // Also generate matches between new players if there are multiple
+    for (let i = 0; i < newPlayerIds.length; i++) {
+      for (let j = i + 1; j < newPlayerIds.length; j++) {
+        // Add two matches - one home and one away
+        newSchedule.push({
+          id: matchIdCounter++,
+          player1: newPlayerIds[i],
+          player2: newPlayerIds[j],
+          completed: false,
+          result: null,
+          player1Score: null,
+          player2Score: null,
+          isHome: true,
+        });
+        
+        newSchedule.push({
+          id: matchIdCounter++,
+          player1: newPlayerIds[j],
+          player2: newPlayerIds[i],
+          completed: false,
+          result: null,
+          player1Score: null,
+          player2Score: null,
+          isHome: true,
+        });
+      }
+    }
+    
+    setSchedule(newSchedule);
+    localStorage.setItem('beybladeSchedule', JSON.stringify(newSchedule));
+    alert(`Added ${newSchedule.length - schedule.length} new matches for ${newPlayerIds.length} new player(s)`);
   };
 
   const resetAllStats = () => {
@@ -1460,6 +1559,15 @@ const PlayerList = () => {
                   >
                     Generate Schedule
                   </StyledButton>
+                  <StyledButton
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<RefreshIcon />}
+                    onClick={() => handleOpenConfirmation('softReset')}
+                    fullWidth={{ xs: true, sm: false }}
+                  >
+                    Soft Reset
+                  </StyledButton>
                 </Stack>
               </Stack>
               <TableContainer 
@@ -1826,6 +1934,8 @@ const PlayerList = () => {
                       ? 'Are you sure you want to delete this player? This will also remove all their matches from the schedule.'
                       : actionType === 'deleteAll'
                       ? 'Are you sure you want to delete all players? This will also remove all matches from the schedule.'
+                      : actionType === 'softReset'
+                      ? 'This will generate matches only for new players without affecting existing match data. Continue?'
                       : 'Are you sure you want to generate a new schedule? This will create a new randomized schedule for all players.'
                     }
                   </Typography>
@@ -2036,6 +2146,39 @@ const PlayerList = () => {
                           <Grid item xs={6}>
                             <Typography variant="body2" color="text.secondary">Total Points</Typography>
                             <Typography variant="h6">{selectedBeyblade.points || 0}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Home Win Rate</Typography>
+                            <Typography variant="h6">{
+                              schedule.filter(match => match.player1 === selectedBeyblade.id && match.completed).length > 0
+                                ? Math.round((schedule.filter(match => 
+                                    match.player1 === selectedBeyblade.id && 
+                                    match.completed && 
+                                    match.result === 'win'
+                                  ).length / 
+                                  schedule.filter(match => 
+                                    match.player1 === selectedBeyblade.id && 
+                                    match.completed
+                                  ).length) * 100)
+                                : 0
+                            }%</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Away Win Rate</Typography>
+                            <Typography variant="h6">{
+                              schedule.filter(match => match.player2 === selectedBeyblade.id && match.completed).length > 0
+                                ? Math.round((schedule.filter(match => 
+                                    match.player2 === selectedBeyblade.id && 
+                                    match.completed && 
+                                    match.result !== 'win' &&
+                                    match.result !== 'draw'
+                                  ).length / 
+                                  schedule.filter(match => 
+                                    match.player2 === selectedBeyblade.id && 
+                                    match.completed
+                                  ).length) * 100)
+                                : 0
+                            }%</Typography>
                           </Grid>
                           <Grid item xs={6}>
                             <Typography variant="body2" color="text.secondary">Goal Difference</Typography>
