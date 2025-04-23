@@ -215,13 +215,128 @@ const MobileStreamPage = () => {
       return;
     }
 
-    // Connect to signaling server first
-    mockSignalingConnect(streamId)
-      .then(() => setupWebRTC())
-      .catch(err => {
-        console.error('Signaling error:', err);
-        setError('Failed to connect to streaming server');
+    // Check for secure context (HTTPS)
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      setError('Camera access requires a secure connection (HTTPS). Please use the HTTPS version of this site.');
+      return;
+    }
+
+    // iOS specific handling - encourage user interaction first
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+      // Set more permissive constraints for iOS
+      const iosConstraints = {
+        audio: audioEnabled,
+        video: {
+          facingMode: cameraFacing,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+      
+      // Connect to signaling server first
+      mockSignalingConnect(streamId)
+        .then(() => {
+          return navigator.mediaDevices.getUserMedia(iosConstraints)
+            .then(stream => {
+              streamRef.current = stream;
+              
+              if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.play()
+                  .then(() => {
+                    console.log('Video playback started successfully');
+                    setStreaming(true);
+                    setupWebRTCConnection(stream);
+                  })
+                  .catch(err => {
+                    console.error('Video playback failed:', err);
+                    setError(`Couldn't start video playback: ${err.message}. Try tapping the screen again.`);
+                  });
+              }
+            })
+            .catch(err => {
+              console.error('Error getting user media on iOS:', err);
+              setError(`Could not access camera: ${err.message}. Make sure to allow camera access in your browser settings.`);
+            });
+        })
+        .catch(err => {
+          console.error('Signaling error:', err);
+          setError('Failed to connect to streaming server');
+        });
+    } else {
+      // Non-iOS handling (original code)
+      mockSignalingConnect(streamId)
+        .then(() => setupWebRTC())
+        .catch(err => {
+          console.error('Signaling error:', err);
+          setError('Failed to connect to streaming server');
+        });
+    }
+  };
+  
+  // Setup WebRTC connection with an existing stream (for iOS)
+  const setupWebRTCConnection = (stream) => {
+    try {
+      setConnectionStatus('connecting');
+      
+      // Create and configure RTCPeerConnection
+      const configuration = {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      };
+      
+      const peerConnection = new RTCPeerConnection(configuration);
+      peerConnectionRef.current = peerConnection;
+      
+      // Add tracks to the peer connection
+      stream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, stream);
       });
+      
+      // Handle ICE candidates
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          // In a real app, send this to the signaling server
+          mockSendSignal({
+            type: 'ice-candidate',
+            candidate: event.candidate,
+            streamId
+          });
+        }
+      };
+      
+      peerConnection.onconnectionstatechange = () => {
+        console.log("Connection state:", peerConnection.connectionState);
+        if (peerConnection.connectionState === 'connected') {
+          setConnectionStatus('connected');
+        } else if (peerConnection.connectionState === 'disconnected' || 
+                   peerConnection.connectionState === 'failed') {
+          setConnectionStatus('disconnected');
+        }
+      };
+      
+      // Create offer to start the stream
+      peerConnection.createOffer()
+        .then(offer => peerConnection.setLocalDescription(offer))
+        .then(() => {
+          // In a real app, send this offer to the signaling server
+          mockSendSignal({
+            type: 'offer',
+            offer: peerConnection.localDescription,
+            streamId
+          });
+        })
+        .catch(err => {
+          console.error('Error creating offer:', err);
+          setError(`Couldn't create connection offer: ${err.message}`);
+        });
+      
+    } catch (err) {
+      console.error('Error setting up WebRTC connection:', err);
+      setError(`Connection error: ${err.message}`);
+    }
   };
   
   // Stop streaming
@@ -311,6 +426,11 @@ const MobileStreamPage = () => {
                     <Typography variant="body2" align="center" sx={{ mt: 1, opacity: 0.7 }}>
                       Press the button below to start streaming
                     </Typography>
+                    {/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream && (
+                      <Typography variant="body2" align="center" sx={{ mt: 2, color: 'yellow' }}>
+                        iOS users: Tap the button below and allow camera access when prompted
+                      </Typography>
+                    )}
                   </Box>
                 )}
                 
@@ -386,6 +506,14 @@ const MobileStreamPage = () => {
                       onClick={startStream}
                       size="large"
                       fullWidth
+                      sx={{ 
+                        py: 2, 
+                        fontSize: '1.1rem',
+                        ...((/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) && {
+                          backgroundColor: 'success.main',
+                          '&:hover': { backgroundColor: 'success.dark' }
+                        })
+                      }}
                     >
                       Start Streaming
                     </Button>
